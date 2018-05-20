@@ -1,0 +1,71 @@
+----count of services-----------	
+	
+	SELECT
+			 COUNT(DISTINCT fms.iService_ID)
+		FROM @Dealers d
+		JOIN EnterpriseDW..F_ServiceMatchDetails fms ON fms.Dealer_SID = d.DealerSid
+		JOIN EnterpriseDW..F_Service fs ON  fs.iService_ID = fms.iService_ID
+														AND fs.TransactionType_SID NOT IN (5, 6, 7) --exclude Body Shop, Dealer Internal, PDI
+														AND (fs.IsCustomerPay = 1 or fs.IsWarrantyPay = 1) -- Filter out "Internal only"
+		JOIN EnterpriseDW..F_ServiceMatch sm ON fms.ServiceMatch_SID = sm.ServiceMatchSID AND sm.IsSuppressed = 0											
+		WHERE fms.TransactionDate BETWEEN @StartDate AND @EndDate
+		AND fms.Strategy_SID IN (43,44) --NB: this filters results to just those that can be attributed to DL campaigns
+		
+		
+----count of sales-----------		
+
+		SELECT
+			 COUNT(DISTINCT fms.iSales_ID)
+		FROM EnterpriseDW..@Dealers d
+		JOIN EnterpriseDW..F_SalesMatchDetails fms ON fms.Dealer_SID =d.DealerSid
+		JOIN EnterpriseDW..F_Sales fs ON  fs.iSales_ID = fms.iSales_ID
+														and fs.TransactionType_SID=1 --TransactionType is "Retail"
+		JOIN EnterpriseDW..F_SalesMatch sm ON fms.SalesMatch_SID = sm.SalesMatchSID AND sm.IsSuppressed = 0											
+		WHERE fms.TransactionDate BETWEEN @StartDate AND @EndDate
+		AND fms.Strategy_SID IN (43,44) --NB: this filters results to just those that can be attributed to DL campaigns
+
+		
+----the detailed service matches -----------		
+
+SELECT
+			 fs.CloseDate AS RO_DATE,
+			 dc.FirstName,
+			 dc.LastName,
+			 dv.VIN,
+			 dv.ModelYear,
+			 dv.Make,
+			 dv.Model,
+			 fs.ROTotalCost AS TotalROAmount
+		FROM EnterpriseDW..@Dealers d
+		JOIN EnterpriseDW..F_ServiceMatchDetails fms ON fms.Dealer_SID =d.DealerSid
+		JOIN EnterpriseDW..F_Service fs ON  fs.iService_ID = fms.iService_ID
+									 AND fs.TransactionType_SID NOT IN (5, 6, 7) --exclude Body Shop, Dealer Internal, PDI
+									 AND (fs.IsCustomerPay = 1 OR fs.IsWarrantyPay = 1) -- Filter out "Internal only"
+		JOIN EnterpriseDW..D_Customer dc ON fs.Customer_SID=dc.Customer_SID
+		JOIN EnterpriseDW..[D_Vehicle] dv ON fs.Vehicle_SID=dv.Vehicle_SID
+		JOIN EnterpriseDW..F_ServiceMatch sm ON fms.ServiceMatch_SID = sm.ServiceMatchSID AND sm.IsSuppressed = 0											
+		WHERE fms.TransactionDate BETWEEN @StartDate AND @EndDate
+		AND fms.Strategy_SID in (43,44)
+		
+
+----the detailed sales matches -----------
+		
+		SELECT
+			 fs.DealBookDate AS RO_DATE,
+			 dc.FirstName,
+			 dc.LastName,
+			 dv.VIN,
+			 dv.ModelYear,
+			 dv.Make,
+			 dv.Model
+			 --,sales_price? ??Cash Price, TotalOfPayment, RetailPayment??
+		FROM EnterpriseDW..@Dealers d
+		JOIN EnterpriseDW..F_SalesMatchDetails fms ON fms.Dealer_SID =d.DealerSid
+		JOIN EnterpriseDW..F_Sales fs ON  fs.iSales_ID = fms.iSales_ID
+									 AND fs.TransactionType_SID=1 --TransactionType is "Retail"
+		JOIN EnterpriseDW..D_Customer dc ON fs.PrimaryCustomer_SID=dc.Customer_SID
+		JOIN EnterpriseDW..[D_Vehicle] dv ON fs.VehicleSold_SID=dv.Vehicle_SID
+		JOIN EnterpriseDW..F_SalesMatch sm ON fms.SalesMatch_SID = sm.SalesMatchSID AND sm.IsSuppressed = 0											
+		WHERE fms.TransactionDate BETWEEN @StartDate AND @EndDate
+		AND fms.Strategy_SID in (43,44) --NB: this filters results to just those that can be attributed to DL campaigns		
+				
